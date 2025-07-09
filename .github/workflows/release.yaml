@@ -40,6 +40,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: dist/staas-cli
+        tag_name: ${{ github.ref_name }}
 
 
   build-windows:
@@ -75,3 +76,4 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: dist/staas-cli.exe
+        tag_name: ${{ github.ref_name }}
