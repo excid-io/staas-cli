@@ -73,8 +73,6 @@ def sign_image(image, token, comment, bundle_output_file, verbose):
     os.remove(sig_file)
     os.remove(cert_file)
     os.remove(rekor_file)
-    os.remove(ca_file)
-    os.remove(bundle_output_file)
 
 def sign_blob(artifact, token, comment, output, verbose):
 
