@@ -56,7 +56,7 @@ def sign_image(image, token, comment, bundle_output_file, verbose):
         rekor_file = 'rekor.bundle'
 
     with open(sig_file, 'w') as outfile:
-        json.dump(signature, outfile, indent=4)
+        outfile.write(signature)
     with open(cert_file, 'w') as outfile:
         outfile.write(cert_decoded)
     with open(rekor_file, 'w') as outfile:
