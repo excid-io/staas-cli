@@ -118,6 +118,26 @@ def download_ca_pem(output_file):
     except requests.exceptions.RequestException as e:
         print(f'Error downloading file: {e}')
 
+def download_cosign():
+    url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+    try:
+        # Send a GET request to the URL
+        response = requests.get(url, allow_redirects=True)
+        response.raise_for_status()  # Raise an error for bad responses
+
+        output_path = 'cosign'
+        with open(output_path, 'wb') as file:
+            file.write(response.content)
+
+        print(f'Successfully downloaded {output_path}')
+    except requests.exceptions.RequestException as e:
+        print(f'Error downloading file: {e}')
+    try: 
+        os.system("ls -la")
+        os.system("mv cosign /usr/local/cosign")
+        os.chmod("/usr/local/cosign", 0o755)
+    except Exception as e:
+        print(f'Error moving and changing file permissions: {e}')
 
 def main():
 
@@ -144,11 +164,13 @@ def main():
         if args.token is None or args.image is None:
             sign_image_parser.print_help()
             sys.exit(1)
+        download_cosign()
         sign_image(args.image, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'sign-blob':
         if not args.artifact:
             sign_blob_parser.print_help()
             sys.exit(1) 
+        download_cosign()
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     else:
         parser.print_help()
