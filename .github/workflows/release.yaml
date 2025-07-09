@@ -38,6 +38,7 @@ jobs:
         pyinstaller --onefile staas-cli.py
     - name: Release
       uses: softprops/action-gh-release@v2
+      tag_name: "1.0.0"
       with:
         files: dist/staas-cli
 
@@ -73,5 +74,6 @@ jobs:
         pyinstaller --onefile staas-cli.py
     - name: Release
       uses: softprops/action-gh-release@v2
+      tag_name: "1.0.0"
       with:
         files: dist/staas-cli.exe
