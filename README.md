@@ -6,7 +6,7 @@ Prerequisites:
 1. `docker` exists in your system
 2. `cosign` exists in your system (staas-cli downloads it for you if it does not exist)  
 
-```sh
+```text
 $ python3 staas-cli.py -h
 
 usage: staas-cli.py [-h] [-v] {sign-image,sign-blob} ...

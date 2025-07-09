@@ -8,7 +8,8 @@ on:
 
 jobs:
   build-ubuntu:
-
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -44,7 +45,8 @@ jobs:
 
 
   build-windows:
-
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
