@@ -29,5 +29,5 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: excid-io/staas-cli:latest
+          tags: ghcr.io/excid-io/staas-cli:latest
 
