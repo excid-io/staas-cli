@@ -24,15 +24,6 @@ options:
   -v, --verbose         Verbose output
 ```
 
-## Table of Contents
-
-- [Installation](#installation)
-- [Usage](#usage)
-  - [Sign Image](#sign-image)
-  - [Sign Blob](#sign-blob)
-- [Options](#options)
-- [License](#license)
-
 ## Use
 
 The commands available right now are:
@@ -48,7 +39,7 @@ python3 staas-cli.py sign-image -t STAAS_API_TOKEN -c COMMENT -o BUNDLE_OUTPUT_F
 ```
 This command signs a container image and uploads the signature on the OCI registry.
 
-### Signing artifacts (arbitrary blobs)
+### Signing blobs (arbitrary artifacts)
 
 Command:
 

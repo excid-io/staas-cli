@@ -143,7 +143,7 @@ def main():
     parser = argparse.ArgumentParser(description="Sign an artifact using STaaS (https://staas.excid.io)\nA path to an artifact is provided, and its digest is sent to STaaS. STaaS then returns the signature in a bundle.")
     subparsers = parser.add_subparsers(dest='command')
 
-    sign_image_parser = subparsers.add_parser('sign-image', help='Sign a container image')
+    sign_image_parser = subparsers.add_parser('sign-image', help='Sign a container image and attach it on the container image')
     sign_image_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
     sign_image_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
     sign_image_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name output file (default is output.bundle)')
@@ -154,6 +154,15 @@ def main():
     sign_blob_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Blob w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
     sign_blob_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name output file (default is output.bundle)')
     sign_blob_parser.add_argument('artifact', type=str, metavar='', help='Path to the artifact to sign')
+
+    attest_parser = subparsers.add_parser('attest', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and the creates a DSSE envelope which is attached to the image')
+    attest_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
+    attest_parser.add_argument('-p','--predicate', type=str, metavar='', required=True, help='Predicate of in-toto statement')
+    attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', required=True, help='Predicate type of in-toto statement (provide URIs like https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
+    attest_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Attested Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
+    attest_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.att', help='Name output file (default is output.att)')
+    attest_parser.add_argument('image', type=str, metavar='', help='Image to attest. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
+
 
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
 
