@@ -8,8 +8,6 @@ on:
 
 jobs:
   build-ubuntu:
-    permissions:
-      packages: write
 
     runs-on: ubuntu-latest
     strategy:
@@ -18,7 +16,7 @@ jobs:
         python-version: ["3.9"]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.2.2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v3
       with:
@@ -53,7 +51,7 @@ jobs:
         python-version: ["3.9"]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4.2.2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v3
       with:
