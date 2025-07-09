@@ -3,7 +3,9 @@
 *.pem
 payload.json
 staas-ca.pem
-
+build/
+dist/
+staas-cli.spec
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

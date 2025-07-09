@@ -134,8 +134,9 @@ def download_cosign():
         print(f'Error downloading file: {e}')
     try: 
         os.system("ls -la")
-        os.system("mv cosign /usr/local/cosign")
-        os.chmod("/usr/local/cosign", 0o755)
+        os.system("mv cosign /usr/bin/cosign")
+        os.chmod("/usr/bin/cosign", 0o755)
+        print("Cosign installed")
     except Exception as e:
         print(f'Error moving and changing file permissions: {e}')
 
@@ -160,17 +161,19 @@ def main():
 
     args = parser.parse_args()
 
+    cosign_exists = os.system("cosign version")
+    if cosign_exists != 0:
+        download_cosign()
+
     if args.command == 'sign-image':
         if args.token is None or args.image is None:
             sign_image_parser.print_help()
             sys.exit(1)
-        download_cosign()
         sign_image(args.image, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'sign-blob':
         if not args.artifact:
             sign_blob_parser.print_help()
             sys.exit(1) 
-        download_cosign()
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     else:
         parser.print_help()
