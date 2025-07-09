@@ -10,6 +10,6 @@ WORKDIR /staas
 
 COPY staas-cli.py requirements.txt /staas/
 
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt --break-system-packages
 
 CMD [ "python3", "/staas/staas-cli.py" ]
