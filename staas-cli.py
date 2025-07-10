@@ -106,8 +106,85 @@ def sign_blob(artifact, token, comment, output, verbose):
         text_file.write(response.text)
     print("Wrote bundle to " + output)
 
-def attest():
-    pass
+def attest(image, predicate, predicate_type, token, comment, att_output_file, verbose):
+    # 1. Craft in-toto statement using predicate_type and predicate
+    command = "docker buildx imagetools inspect " + image + " | awk '/Digest:/{split($2,a,\":\"); print a[2]}'"
+    # 1.a Get digest of provided image
+    try:
+        with os.popen(command, 'r') as pipe:
+            output_string = pipe.read()
+            status = pipe.close()
+
+        if status is not None and status != 0:
+            print(f"Command failed with exit status {status}")
+            print(f"Command Output (potential error messages):\n{output_string}")
+            digest = None
+        else:
+            digest = output_string.strip()
+            if not digest: # Check if the output was empty after stripping
+                print("Command executed successfully but returned no digest.")
+                digest = None
+    except Exception as e:
+        print(f"An error occurred while running the command, and could not fetch the digest: {e}")
+        digest = None
+        return
+
+    if digest:
+        print(f"The digest of the image is: {digest}")
+    else:
+        print("Failed to obtain the digest.")
+
+    # 1.b Predicate is stored in a file, so we need to read it an store it inside the json field.
+    intoto_statement = {
+        "_type": "https://in-toto.io/Statement/v0.1",
+        "predicateType": predicate_type,
+        "subject": [{
+            "name": image.split(':')[0],
+            "digest": {
+                "sha256": digest
+            }
+        }],
+        "predicate": "<PREDICATE>"
+    }
+    with open(predicate, 'r') as predicate_file:
+        predicate_data = json.load(predicate_file)
+    
+    intoto_statement["predicate"] = predicate_data
+
+    with open('intoto.json', 'w') as intoto_file:
+        json.dump(intoto_statement, intoto_file, indent=4)
+    print("Created in-toto statement")
+
+    if (verbose):
+        print(intoto_statement)
+
+    # 2. Sign in-toto statement using STaaS
+    sign_blob('intoto.json', token, comment, 'intoto.json.bundle', verbose)
+
+    # 3. Craft DSSE envelope
+    dsse = {
+        "payloadType": "application/vnd.in-toto+json",
+        "payload": "<Base64(INTOTO-STATEMENT)>",
+        "signatures": [{
+            "sig": "<Base64(SIGNATURE)>"
+        }]
+    }
+    # 3.a Set the payload
+    payload_base64 = base64.b64encode(json.dumps(intoto_statement).encode('utf-8')).decode('utf-8')
+    dsse["payload"] = payload_base64
+    os.remoev('intoto.json') # no need for the file anymore
+    # 3.b Set the signature (stored in intoto.json.bundle)
+    with open('intoto.json.bundle', 'r') as bundle_file:
+        bundle_data = json.load(bundle_file)
+        signature = bundle_data["base64Signature"]
+    dsse['signatures'][0]['sig'] = signature
+
+    # 4. Dump DSSE into a file and attach it to image
+    with open(att_output_file, 'w') as attestation_file:
+        json.dump(dsse, attestation_file, indent=4)
+
+
+
 
 
 
@@ -161,12 +238,12 @@ def main():
     sign_blob_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name output file (default is output.bundle)')
     sign_blob_parser.add_argument('artifact', type=str, metavar='', help='Path to the artifact to sign')
 
-    attest_parser = subparsers.add_parser('attest', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and the creates a DSSE envelope which is attached to the image')
+    attest_parser = subparsers.add_parser('attest', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and creates a DSSE envelope which is attached to the image')
     attest_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
     attest_parser.add_argument('-p','--predicate', type=str, metavar='', required=True, help='Predicate of in-toto statement')
     attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', dest='predicate_type', required=True, help='Predicate type of in-toto statement (provide URIs like https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
     attest_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Attested Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
-    attest_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.att', help='Name output file (default is output.att)')
+    attest_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='dsse-output.att', help='Name output file (default is dsse-output.att)')
     attest_parser.add_argument('image', type=str, metavar='', help='Image to attest. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
