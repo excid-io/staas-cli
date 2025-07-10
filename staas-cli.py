@@ -12,7 +12,7 @@ cosign_executable = ""
 
 def sign_image(image, token, comment, bundle_output_file, verbose):
     # 1. Generate payload with cosign
-    os.system(f'cosign generate {image} > payload.json')
+    os.system(cosign_executable + f' generate {image} > payload.json')
     print("Generated image payload json ")
     payload_file = 'payload.json'
     with open(payload_file,"rb") as f:
@@ -64,7 +64,7 @@ def sign_image(image, token, comment, bundle_output_file, verbose):
 
     download_ca_pem(ca_file)
 
-    exit_status = os.system(f'cosign attach signature {image} --signature {sig_file} --payload {payload_file} --certificate-chain {ca_file} --certificate {cert_file} --rekor-response {rekor_file}')
+    exit_status = os.system(cosign_executable + f' attach signature {image} --signature {sig_file} --payload {payload_file} --certificate-chain {ca_file} --certificate {cert_file} --rekor-response {rekor_file}')
     if (exit_status == 0):  # success
         print("Attached signature to image " + image)
     else:
@@ -184,7 +184,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     with open(att_output_file, 'w') as attestation_file:
         json.dump(dsse, attestation_file, indent=4)
     print("Created DSSE envelope")
-    os.system(f"cosign attach attestation --attestation {att_output_file} {image}")
+    os.system(cosign_executable + f" attach attestation --attestation {att_output_file} {image}")
     print(f"Attached attestation to image {image}")
 
 def download_ca_pem(output_file):
