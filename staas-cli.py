@@ -8,7 +8,6 @@ import json
 
 ca_file = 'staas-ca.pem'
 
-
 def sign_image(image, token, comment, bundle_output_file, verbose):
     # 1. Generate payload with cosign
     os.system(f'cosign generate {image} > payload.json')
@@ -106,7 +105,7 @@ def sign_blob(artifact, token, comment, output, verbose):
         text_file.write(response.text)
     print("Wrote bundle to " + output)
 
-def attest(image, predicate, predicate_type, token, comment, att_output_file, verbose):
+def attest(image, predicate, predicate_type, token, comment, att_output_file, bundle_output_file, verbose):
     # 1. Craft in-toto statement using predicate_type and predicate
     command = "docker buildx imagetools inspect " + image + " | awk '/Digest:/{split($2,a,\":\"); print a[2]}'"
     # 1.a Get digest of provided image
@@ -159,7 +158,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, ve
         print(intoto_statement)
 
     # 2. Sign in-toto statement using STaaS
-    sign_blob('intoto.json', token, comment, 'intoto.json.bundle', verbose)
+    sign_blob('intoto.json', token, comment, bundle_output_file, verbose)
 
     # 3. Craft DSSE envelope
     dsse = {
@@ -174,7 +173,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, ve
     dsse["payload"] = payload_base64
     os.remove('intoto.json') # no need for the file anymore
     # 3.b Set the signature (stored in intoto.json.bundle)
-    with open('intoto.json.bundle', 'r') as bundle_file:
+    with open(bundle_output_file, 'r') as bundle_file:
         bundle_data = json.load(bundle_file)
         signature = bundle_data["base64Signature"]
     dsse['signatures'][0]['sig'] = signature
@@ -232,13 +231,13 @@ def main():
     sign_image_parser = subparsers.add_parser('sign-image', help='Sign a container image and attach it on the container image')
     sign_image_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
     sign_image_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
-    sign_image_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name output file (default is output.bundle)')
+    sign_image_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
     sign_image_parser.add_argument('image', type=str, metavar='', help='Image to sign. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
     sign_blob_parser = subparsers.add_parser('sign-blob', help='Sign a blob (arbitrary artifact)')
     sign_blob_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
     sign_blob_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Blob w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
-    sign_blob_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name output file (default is output.bundle)')
+    sign_blob_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
     sign_blob_parser.add_argument('artifact', type=str, metavar='', help='Path to the artifact to sign')
 
     attest_parser = subparsers.add_parser('attest-image', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and creates a DSSE envelope which is attached to the image')
@@ -246,7 +245,8 @@ def main():
     attest_parser.add_argument('-p','--predicate', type=str, metavar='', required=True, help='Predicate of in-toto statement')
     attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', dest='predicate_type', required=True, help='Predicate type of in-toto statement (provide URIs like https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
     attest_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Attested Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
-    attest_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='dsse-output.att', help='Name output file (default is dsse-output.att)')
+    attest_parser.add_argument('-oa', '--output-attestation', type=str, metavar='', dest='output_attestation', required=False, default='dsse-output.att', help='Name of attestation output file (default is dsse-output.att)')
+    attest_parser.add_argument('-ob', '--output-bundle', type=str, metavar='', dest='output_bundle', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
     attest_parser.add_argument('image', type=str, metavar='', help='Image to attest. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -261,7 +261,7 @@ def main():
     elif args.command == 'sign-blob':
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'attest-image':
-        attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output, args.verbose)
+        attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.verbose)
     else:
         parser.print_help()
         os._exit(0)
