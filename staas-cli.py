@@ -172,7 +172,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, ve
     # 3.a Set the payload
     payload_base64 = base64.b64encode(json.dumps(intoto_statement).encode('utf-8')).decode('utf-8')
     dsse["payload"] = payload_base64
-    os.remoev('intoto.json') # no need for the file anymore
+    os.remove('intoto.json') # no need for the file anymore
     # 3.b Set the signature (stored in intoto.json.bundle)
     with open('intoto.json.bundle', 'r') as bundle_file:
         bundle_data = json.load(bundle_file)
@@ -182,9 +182,9 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, ve
     # 4. Dump DSSE into a file and attach it to image
     with open(att_output_file, 'w') as attestation_file:
         json.dump(dsse, attestation_file, indent=4)
-
+    print("Created DSSE envelope")
     os.system(f"cosign attach attestation --attestation {att_output_file} {image}")
-
+    print(f"Attached attestation to image {image}")
 
 def download_ca_pem(output_file):
     url = "http://staas.excid.io/Sign/Certificate"
@@ -241,7 +241,7 @@ def main():
     sign_blob_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name output file (default is output.bundle)')
     sign_blob_parser.add_argument('artifact', type=str, metavar='', help='Path to the artifact to sign')
 
-    attest_parser = subparsers.add_parser('attest', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and creates a DSSE envelope which is attached to the image')
+    attest_parser = subparsers.add_parser('attest-image', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and creates a DSSE envelope which is attached to the image')
     attest_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
     attest_parser.add_argument('-p','--predicate', type=str, metavar='', required=True, help='Predicate of in-toto statement')
     attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', dest='predicate_type', required=True, help='Predicate type of in-toto statement (provide URIs like https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
@@ -252,7 +252,7 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
 
-    cosign_exists = os.system("cosign version")
+    cosign_exists = os.system("cosign version > /dev/null 2>&1")  # check if cosign exists but hide the stdout
     if cosign_exists != 0:
         download_cosign()
 
@@ -260,7 +260,7 @@ def main():
         sign_image(args.image, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'sign-blob':
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
-    elif args.command == 'attest':
+    elif args.command == 'attest-image':
         attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output, args.verbose)
     else:
         parser.print_help()
