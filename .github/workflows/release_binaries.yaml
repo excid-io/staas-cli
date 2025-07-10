@@ -19,6 +19,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.2.2
+      
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
@@ -42,6 +43,10 @@ jobs:
         run: |
           pyinstaller --onefile staas-cli.py
 
+      - name: Make file executable
+        run: |
+          chmod +x dist/staas-cli.py
+
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
@@ -61,10 +66,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.2.2
-
-      - name: Make file executable
-        run: |
-          chmod +x staas-cli.py
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
@@ -88,6 +89,10 @@ jobs:
       - name: Pyinstaller
         run: |
           pyinstaller --onefile staas-cli.py
+
+      - name: Make file executable
+        run: |
+          chmod +x dist/staas-cli.py
 
       - name: Release
         uses: softprops/action-gh-release@v2

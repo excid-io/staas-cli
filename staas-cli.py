@@ -105,6 +105,11 @@ def sign_blob(artifact, token, comment, output, verbose):
         text_file.write(response.text)
     print("Wrote bundle to " + output)
 
+def attest():
+    pass
+
+
+
 def download_ca_pem(output_file):
     url = "http://staas.excid.io/Sign/Certificate"
     try:
@@ -158,33 +163,28 @@ def main():
     attest_parser = subparsers.add_parser('attest', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and the creates a DSSE envelope which is attached to the image')
     attest_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
     attest_parser.add_argument('-p','--predicate', type=str, metavar='', required=True, help='Predicate of in-toto statement')
-    attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', required=True, help='Predicate type of in-toto statement (provide URIs like https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
+    attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', dest='predicate_type', required=True, help='Predicate type of in-toto statement (provide URIs like https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
     attest_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Attested Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
     attest_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.att', help='Name output file (default is output.att)')
     attest_parser.add_argument('image', type=str, metavar='', help='Image to attest. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
-
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-
     args = parser.parse_args()
 
-    cosign_exists = os.system("cosign version")
-    if cosign_exists != 0:
-        download_cosign()
+    # TODO: detect if os is windows -> download cosign.exe, else if liunux -> download cosign elf
+    # cosign_exists = os.system("cosign version")
+    # if cosign_exists != 0:
+    #     download_cosign()
 
     if args.command == 'sign-image':
-        if args.token is None or args.image is None:
-            sign_image_parser.print_help()
-            sys.exit(1)
         sign_image(args.image, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'sign-blob':
-        if not args.artifact:
-            sign_blob_parser.print_help()
-            sys.exit(1) 
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
+    elif args.command == 'attest':
+        attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output, args.verbose)
     else:
         parser.print_help()
-        exit()
+        exit(0)
 
 if __name__ == "__main__":
     main()
