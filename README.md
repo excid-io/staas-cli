@@ -50,6 +50,18 @@ This command signs an artifact provided and stores the bundle (that contains the
 
 ## Installation
 
+#### From releases
+
+You can download the binaries from the repo's releases. Windows and Linux versions supported.
+
+#### Container image
+You can run the container image uploaded on the repo's packages. It has installed all the dependencies, so the runtime environment is already premade. Useful for scenarios like GitLab CI.
+
+```sh
+docker pull ghcr.io/excid-io/staas-cli:latest
+```
+
+#### Set up from scratch
 To use the signing tool, clone the repository and install the required dependencies:
 
 ```bash
