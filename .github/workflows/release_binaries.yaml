@@ -33,10 +33,6 @@ jobs:
           source env/bin/activate
           python -m pip install pyinstaller
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          ls env/lib/python3.9/site-packages
-
-      - name: Pyinstaller
-        run: |
           pyinstaller --onefile --paths env/lib/python3.9/site-packages staas-cli.py
 
       - name: Release
@@ -71,9 +67,6 @@ jobs:
           .\env\Scripts\activate
           python -m pip install pyinstaller
           if (Test-Path "requirements.txt") { pip install -r requirements.txt }
-
-      - name: Pyinstaller
-        run: |
           pyinstaller --onefile --paths env/lib/python3.9/site-packages staas-cli.py
 
       - name: Release
