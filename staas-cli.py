@@ -183,9 +183,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, ve
     with open(att_output_file, 'w') as attestation_file:
         json.dump(dsse, attestation_file, indent=4)
 
-
-
-
+    os.system(f"cosign attach attestation --attestation {att_output_file} {image}")
 
 
 def download_ca_pem(output_file):
@@ -200,13 +198,19 @@ def download_ca_pem(output_file):
         print(f'Error downloading file: {e}')
 
 def download_cosign():
-    url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+    if os.name == 'nt':
+        print("Operating System: Windows\nDownloading cosign for Windows")
+        url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe"
+        output_path = 'cosign.exe'
+    elif os.name == 'posix':
+        print("Operating System: Linux\nDownloading cosign for Linux")
+        url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+        output_path = 'cosign'
     try:
         # Send a GET request to the URL
         response = requests.get(url, allow_redirects=True)
         response.raise_for_status()  # Raise an error for bad responses
 
-        output_path = 'cosign'
         with open(output_path, 'wb') as file:
             file.write(response.content)
 
@@ -214,7 +218,6 @@ def download_cosign():
     except requests.exceptions.RequestException as e:
         print(f'Error downloading file: {e}')
     try: 
-        os.system("ls -la")
         os.system("mv cosign /usr/bin/cosign")
         os.chmod("/usr/bin/cosign", 0o755)
         print("Cosign installed")
@@ -249,10 +252,9 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
 
-    # TODO: detect if os is windows -> download cosign.exe, else if liunux -> download cosign elf
-    # cosign_exists = os.system("cosign version")
-    # if cosign_exists != 0:
-    #     download_cosign()
+    cosign_exists = os.system("cosign version")
+    if cosign_exists != 0:
+        download_cosign()
 
     if args.command == 'sign-image':
         sign_image(args.image, args.token, args.comment, args.output, args.verbose)
