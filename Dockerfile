@@ -1,15 +1,11 @@
 FROM docker
 
-RUN apk --no-cache add curl jq python3
-
-RUN curl -O https://bootstrap.pypa.io/get-pip.py 
-
-RUN python3 get-pip.py --break-system-packages
+RUN apk --no-cache add curl jq python3 py3-pip cosign
 
 WORKDIR /staas
 
 COPY staas-cli.py requirements.txt /staas/
 
-RUN pip install -r requirements.txt --break-system-packages
+RUN pip3 install -r requirements.txt --break-system-packages
 
 CMD [ "python3", "/staas/staas-cli.py" ]
