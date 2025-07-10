@@ -3,12 +3,10 @@ name: Build Container Image
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  paths:
-    - .github/workflows/ci_image.yaml
-    - staas-cli.py
-    - Dockerfile
+    paths:
+      - .github/workflows/ci_image.yaml
+      - staas-cli.py
+      - Dockerfile
 
 jobs:
   build-ubuntu:
