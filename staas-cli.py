@@ -2,7 +2,6 @@
 import hashlib
 import base64
 import requests
-import sys
 import argparse
 import os
 import json
@@ -70,9 +69,11 @@ def sign_image(image, token, comment, bundle_output_file, verbose):
     else:
         print("Could not attach signature")
     
+    os.remove(payload_file)
     os.remove(sig_file)
     os.remove(cert_file)
     os.remove(rekor_file)
+    os.remove(ca_file)
 
 def sign_blob(artifact, token, comment, output, verbose):
 
