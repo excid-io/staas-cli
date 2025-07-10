@@ -6,7 +6,9 @@ import argparse
 import os
 import json
 
+# global vars
 ca_file = 'staas-ca.pem'
+cosign_executable = ""
 
 def sign_image(image, token, comment, bundle_output_file, verbose):
     # 1. Generate payload with cosign
@@ -201,10 +203,12 @@ def download_cosign():
         print("Operating System: Windows\nDownloading cosign for Windows")
         url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe"
         output_path = 'cosign.exe'
+        cosign_executable = ".\\cosign.exe"
     elif os.name == 'posix':
         print("Operating System: Linux\nDownloading cosign for Linux")
         url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
         output_path = 'cosign'
+        cosign_executable = "./cosign"
     try:
         # Send a GET request to the URL
         response = requests.get(url, allow_redirects=True)
@@ -217,8 +221,7 @@ def download_cosign():
     except requests.exceptions.RequestException as e:
         print(f'Error downloading file: {e}')
     try: 
-        os.system("mv cosign /usr/bin/cosign")
-        os.chmod("/usr/bin/cosign", 0o755)
+        if os.name == 'posix': os.chmod(cosign_executable, 0o755)
         print("Cosign installed")
     except Exception as e:
         print(f'Error moving and changing file permissions: {e}')
