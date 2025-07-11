@@ -110,6 +110,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
         print(f"The digest of the image is: {digest}")
     else:
         print("Failed to obtain the digest.")
+        return
 
     # 1.b Predicate is stored in a file, so we need to read it an store it inside the json field.
     intoto_statement = {
@@ -156,18 +157,46 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
         signature = bundle_data["base64Signature"]
     dsse['signatures'][0]['sig'] = signature
 
-    # 4. Dump DSSE into a file and attach it to image
+    # 4. Dump DSSE into a file
     with open(att_output_file, 'w') as attestation_file:
         json.dump(dsse, attestation_file, indent=4)
     print("Created DSSE envelope")
-    if upload == True:
-        exit_status = os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
-        if (exit_status == 0):  # success
-            print("Attached attstation to image " + image)
-        else:
-            print("Could not attach signature")
-    else: 
+
+    # 5. Create manifest annotations and then attach to the image
+    if upload == False:
         print("Upload option set to \"False\", skipping uploading")
+        return
+
+    annotations = {
+        att_output_file : {
+            "dev.sigstore.cosign/bundle": "",
+            "dev.sigstore.cosign/certificate": "",
+            "dev.sigstore.cosign/chain": "",
+            "predicateType": ""
+        }
+    }
+
+    annotations[att_output_file]["predicateType"] = intoto_statement["predicateType"]
+    annotations[att_output_file]["dev.sigstore.cosign/bundle"] = json.dumps(bundle_data["rekorBundle"])
+    cert = base64.b64decode(bundle_data.get("cert")).decode('utf-8')
+    annotations[att_output_file]["dev.sigstore.cosign/certificate"] = cert
+    download_ca_pem(ca_file)
+    with open(ca_file, 'r') as ca:
+        ca_data = ca.read()
+    annotations[att_output_file]["dev.sigstore.cosign/chain"] = ca_data
+
+    annotations_file = 'annotations.json'
+    with open(annotations_file, 'w') as ann_file:
+        json.dump(annotations, ann_file, indent=4)
+    print("Created annotations")
+    # 6. Attach
+    # exit_status = os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
+    # if (exit_status == 0):  # success
+    #     print("Attached attstation to image " + image)
+    # else:
+    #     print("Could not attach signature")
+
+    os.remove(ca_file)
 
 def download_ca_pem(output_file):
     url = "http://staas.excid.io/Sign/Certificate"
