@@ -271,6 +271,7 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
 
+    cosign_executable = "cosign"
     cosign_exists = os.system("cosign version > /dev/null 2>&1")  # check if cosign exists but hide the stdout
     if cosign_exists != 0:
         download_cosign()
