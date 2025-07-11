@@ -10,42 +10,15 @@ import json
 ca_file = 'staas-ca.pem'
 cosign_executable = ""
 
-def sign_image(image, token, comment, bundle_output_file, verbose):
+def sign_image(image, token, comment, bundle_output_file, upload, verbose):
     # 1. Generate payload with cosign
-    os.system(cosign_executable + f' generate {image} > payload.json')
+    os.system(f'{cosign_executable} generate {image} > payload.json')
     print("Generated image payload json ")
     payload_file = 'payload.json'
-    with open(payload_file,"rb") as f:
-        bytes = f.read() # read entire file as bytes
-        artifact_digest = hashlib.sha256(bytes).digest()
+    # 2. Sign image with STaaS
+    sign_blob(payload_file, token, comment, bundle_output_file, verbose)
 
-    # 2. Send payload's hash to STaaS for signing
-    url="https://staas.excid.io/"
-    headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Basic ' + token
-    }
-
-    payload = f"""
-    {{
-        "HashBase64":"{base64.b64encode(artifact_digest).decode()}",
-        "Comment":"{comment}"
-    }} """
-
-    if verbose:
-        print(payload)
-
-    response = requests.request("POST", url + "Api/Sign", headers=headers, data=payload)
-    if verbose:
-        print(response.text)
-    print("Response code: " + str(response.status_code))
-    print("Signed image " + image)
-    # 3. Save output bundle locally in a file
-    with open(bundle_output_file, "w") as text_file:
-        text_file.write(response.text)
-    print("Wrote bundle to " + bundle_output_file)
-
-    # 4. Attach signature to OCI registry
+    # 3. Attach signature to OCI registry
     with open(bundle_output_file, 'r') as infile:
         data = json.load(infile)
         signature = data.get("base64Signature")
@@ -64,12 +37,15 @@ def sign_image(image, token, comment, bundle_output_file, verbose):
 
     download_ca_pem(ca_file)
 
-    exit_status = os.system(cosign_executable + f' attach signature {image} --signature {sig_file} --payload {payload_file} --certificate-chain {ca_file} --certificate {cert_file} --rekor-response {rekor_file}')
-    if (exit_status == 0):  # success
-        print("Attached signature to image " + image)
-    else:
-        print("Could not attach signature")
-    
+    if upload == True:
+        exit_status = os.system(f'{cosign_executable} attach signature {image} --signature {sig_file} --payload {payload_file} --certificate-chain {ca_file} --certificate {cert_file} --rekor-response {rekor_file}')
+        if (exit_status == 0):  # success
+            print("Attached signature to image " + image)
+        else:
+            print("Could not attach signature")
+    else: 
+        print("Upload option set to \"False\", skipping uploading")
+
     os.remove(payload_file)
     os.remove(sig_file)
     os.remove(cert_file)
@@ -184,7 +160,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     with open(att_output_file, 'w') as attestation_file:
         json.dump(dsse, attestation_file, indent=4)
     print("Created DSSE envelope")
-    os.system(cosign_executable + f" attach attestation --attestation {att_output_file} {image}")
+    os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
     print(f"Attached attestation to image {image}")
 
 def download_ca_pem(output_file):
@@ -199,6 +175,7 @@ def download_ca_pem(output_file):
         print(f'Error downloading file: {e}')
 
 def download_cosign():
+    global cosign_executable
     if os.name == 'nt':
         print("Operating System: Windows\nDownloading cosign for Windows")
         url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe"
@@ -235,6 +212,7 @@ def main():
     sign_image_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
     sign_image_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
     sign_image_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
+    sign_image_parser.add_argument('--upload', default='True', metavar='', required=False, help='Attach the signature on the OCI registry (default is True)')
     sign_image_parser.add_argument('image', type=str, metavar='', help='Image to sign. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
     sign_blob_parser = subparsers.add_parser('sign-blob', help='Sign a blob (arbitrary artifact)')
@@ -260,7 +238,14 @@ def main():
         download_cosign()
 
     if args.command == 'sign-image':
-        sign_image(args.image, args.token, args.comment, args.output, args.verbose)
+        if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
+            args.upload = True
+        elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
+            args.upload = False
+        else:
+            print("Please provide \"true\" or \"false\" for upload option")
+            os._exit(1)
+        sign_image(args.image, args.token, args.comment, args.output, args.upload, args.verbose)
     elif args.command == 'sign-blob':
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'attest-image':
