@@ -37,14 +37,11 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: STh
-        run: |
-          ls -la
       
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           push: true
           tags: ghcr.io/excid-io/staas-cli:latest
+          context: .
 
