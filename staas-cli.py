@@ -83,7 +83,7 @@ def sign_blob(artifact, token, comment, output, verbose):
         text_file.write(response.text)
     print("Wrote bundle to " + output)
 
-def attest(image, predicate, predicate_type, token, comment, att_output_file, bundle_output_file, verbose):
+def attest(image, predicate, predicate_type, token, comment, att_output_file, bundle_output_file, upload, verbose):
     # 1. Craft in-toto statement using predicate_type and predicate
     command = "docker buildx imagetools inspect " + image + " | awk '/Digest:/{split($2,a,\":\"); print a[2]}'"
     # 1.a Get digest of provided image
@@ -160,8 +160,14 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     with open(att_output_file, 'w') as attestation_file:
         json.dump(dsse, attestation_file, indent=4)
     print("Created DSSE envelope")
-    os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
-    print(f"Attached attestation to image {image}")
+    if upload == True:
+        exit_status = os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
+        if (exit_status == 0):  # success
+            print("Attached attstation to image " + image)
+        else:
+            print("Could not attach signature")
+    else: 
+        print("Upload option set to \"False\", skipping uploading")
 
 def download_ca_pem(output_file):
     url = "http://staas.excid.io/Sign/Certificate"
@@ -176,13 +182,14 @@ def download_ca_pem(output_file):
 
 def download_cosign():
     global cosign_executable
+    print("Cosign not found in PATH, proceeding to download it")
     if os.name == 'nt':
-        print("Operating System: Windows\nDownloading cosign for Windows")
+        print("OS detected: Windows\nDownloading cosign for Windows")
         url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe"
         output_path = 'cosign.exe'
         cosign_executable = ".\\cosign.exe"
     elif os.name == 'posix':
-        print("Operating System: Linux\nDownloading cosign for Linux")
+        print("OS detected: Linux\nDownloading cosign for Linux")
         url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
         output_path = 'cosign'
         cosign_executable = "./cosign"
@@ -202,6 +209,7 @@ def download_cosign():
         print("Cosign installed")
     except Exception as e:
         print(f'Error moving and changing file permissions: {e}')
+    print()
 
 def main():
 
@@ -228,6 +236,7 @@ def main():
     attest_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Attested Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
     attest_parser.add_argument('-oa', '--output-attestation', type=str, metavar='', dest='output_attestation', required=False, default='dsse-output.att', help='Name of attestation output file (default is dsse-output.att)')
     attest_parser.add_argument('-ob', '--output-bundle', type=str, metavar='', dest='output_bundle', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
+    attest_parser.add_argument('--upload', default='True', metavar='', required=False, help='Attach the signature on the OCI registry (default is True)')
     attest_parser.add_argument('image', type=str, metavar='', help='Image to attest. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
@@ -249,7 +258,13 @@ def main():
     elif args.command == 'sign-blob':
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'attest-image':
-        attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.verbose)
+        if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
+            args.upload = True
+        elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
+            args.upload = False
+        else:
+            print("Please provide \"true\" or \"false\" for upload option")
+        attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.upload, args.verbose)
     else:
         parser.print_help()
         os._exit(0)
