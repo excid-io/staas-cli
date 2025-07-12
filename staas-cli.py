@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 import hashlib
 import base64
-import requests
 import argparse
 import os
 import json
+import sys
+import requests
 
 # global vars
 ca_file = 'staas-ca.pem'
@@ -189,13 +190,19 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     with open(annotations_file, 'w') as ann_file:
         json.dump(annotations, ann_file, indent=4)
     print("Created annotations")
+
     # 6. Attach
+
+    registry = image.split('/')[0]
+    image_ref = image.split(':')[0]
+
+    os.system(f"oras tag {image} {image_ref}:sha256-{digest}.att")
+    os.system(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.oci.image.manifest.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation-file {annotations_file}")
     # exit_status = os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
     # if (exit_status == 0):  # success
     #     print("Attached attstation to image " + image)
     # else:
     #     print("Could not attach signature")
-
     os.remove(ca_file)
 
 def download_ca_pem(output_file):
@@ -240,6 +247,18 @@ def download_cosign():
         print(f'Error moving and changing file permissions: {e}')
     print()
 
+def is_interactive():
+    return sys.stdout.isatty() and sys.stdin.isatty()
+
+def detect_ci_environment():
+    print("Environment detected ", end="")
+    if os.getenv('GITLAB_CI'):
+        return "GitLab CI"
+    elif os.getenv('GITHUB_ACTIONS'):
+        return "GitHub Actions"
+    else:
+        return "Local or Unknown Environment"
+
 def main():
 
     parser = argparse.ArgumentParser(description="Sign an artifact using STaaS (https://staas.excid.io)\nA path to an artifact is provided, and its digest is sent to STaaS. STaaS then returns the signature in a bundle.")
@@ -271,11 +290,19 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
 
+    if is_interactive():
+        print("Interactive mode detected")
+    else:
+        print("Non-interactive mode detected")
+
+    detect_ci_environment()
+    
     global cosign_executable
     cosign_executable = "cosign"
     cosign_exists = os.system("cosign version > /dev/null 2>&1")  # check if cosign exists but hide the stdout
     if cosign_exists != 0:
         download_cosign()
+
 
     if args.command == 'sign-image':
         if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
