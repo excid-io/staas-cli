@@ -12,9 +12,10 @@ $ python3 staas-cli.py -h
 
 usage: staas-cli.py [-h] [-v] {sign-image,sign-blob,attest-image} ...
 
-Sign an artifact using STaaS (https://staas.excid.io) A path to an artifact is
-provided, and its digest is sent to STaaS. STaaS then returns the signature in
-a bundle.
+Sign container images and artifacts using STaaS (https://staas.excid.io). A
+path to an artifact is provided, and its digest is sent to STaaS. STaaS then
+returns the signature in a bundle. For container images, signatures and
+attestations can be attached to the image on the OCI registry.
 
 positional arguments:
   {sign-image,sign-blob,attest-image}
