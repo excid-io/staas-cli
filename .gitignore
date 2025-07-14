@@ -6,6 +6,7 @@ staas-ca.pem
 build/
 dist/
 staas-cli.spec
+test/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
