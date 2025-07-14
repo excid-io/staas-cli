@@ -180,6 +180,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
 
     os.system(f"oras tag {image} {image_ref}:sha256-{digest}.att")
     os.system(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.oci.image.manifest.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation-file {annotations_file}")
+    print("Uploaded attestation")
     # exit_status = os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
     # if (exit_status == 0):  # success
     #     print("Attached attstation to image " + image)
@@ -235,11 +236,11 @@ def is_interactive():
 def detect_ci_environment():
     print("Environment detected ", end="")
     if os.getenv('GITLAB_CI'):
-        return "GitLab CI"
+        print("GitLab CI")
     elif os.getenv('GITHUB_ACTIONS'):
-        return "GitHub Actions"
+        print("GitHub Actions")
     else:
-        return "Local or Unknown Environment"
+        print("Local or Unknown Environment")
     
 def get_image_digest(image):
     command = "docker buildx imagetools inspect " + image + " | awk '/Digest:/{split($2,a,\":\"); print a[2]}'"
@@ -307,7 +308,6 @@ def main():
     if cosign_exists != 0:
         download_cosign()
 
-
     if args.command == 'sign-image':
         if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
             args.upload = True
@@ -326,6 +326,7 @@ def main():
             args.upload = False
         else:
             print("Please provide \"true\" or \"false\" for upload option")
+            os._exit(1)
         attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.upload, args.verbose)
     else:
         parser.print_help()
