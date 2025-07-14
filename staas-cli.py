@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 import hashlib
 import base64
-import argparse
 import os
 import json
 import sys
+import argparse
 import requests
 
 # global vars
