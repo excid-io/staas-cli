@@ -12,4 +12,6 @@ RUN chmod +x /staas/staas-cli.py
 
 ENV PATH="/staas:${PATH}"
 
+RUN mv /staas/oras /usr/bin/oras
+
 CMD [ "python3", "/staas/staas-cli.py" ]

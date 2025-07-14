@@ -86,27 +86,8 @@ def sign_blob(artifact, token, comment, output, verbose):
 
 def attest(image, predicate, predicate_type, token, comment, att_output_file, bundle_output_file, upload, verbose):
     # 1. Craft in-toto statement using predicate_type and predicate
-    command = "docker buildx imagetools inspect " + image + " | awk '/Digest:/{split($2,a,\":\"); print a[2]}'"
     # 1.a Get digest of provided image
-    try:
-        with os.popen(command, 'r') as pipe:
-            output_string = pipe.read()
-            status = pipe.close()
-
-        if status is not None and status != 0:
-            print(f"Command failed with exit status {status}")
-            print(f"Command Output (potential error messages):\n{output_string}")
-            digest = None
-        else:
-            digest = output_string.strip()
-            if not digest: # Check if the output was empty after stripping
-                print("Command executed successfully but returned no digest.")
-                digest = None
-    except Exception as e:
-        print(f"An error occurred while running the command, and could not fetch the digest: {e}")
-        digest = None
-        return
-
+    digest = get_image_digest(image)
     if digest:
         print(f"The digest of the image is: {digest}")
     else:
@@ -114,11 +95,12 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
         return
 
     # 1.b Predicate is stored in a file, so we need to read it an store it inside the json field.
+    image_ref = image.split(':')[0]  # remove the ":TAG" from the image string
     intoto_statement = {
         "_type": "https://in-toto.io/Statement/v0.1",
         "predicateType": predicate_type,
         "subject": [{
-            "name": image.split(':')[0],
+            "name": image_ref,
             "digest": {
                 "sha256": digest
             }
@@ -170,6 +152,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
 
     annotations = {
         att_output_file : {
+            "dev.cosignproject.cosign/signature": "",
             "dev.sigstore.cosign/bundle": "",
             "dev.sigstore.cosign/certificate": "",
             "dev.sigstore.cosign/chain": "",
@@ -194,7 +177,6 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     # 6. Attach
 
     registry = image.split('/')[0]
-    image_ref = image.split(':')[0]
 
     os.system(f"oras tag {image} {image_ref}:sha256-{digest}.att")
     os.system(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.oci.image.manifest.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation-file {annotations_file}")
@@ -258,6 +240,28 @@ def detect_ci_environment():
         return "GitHub Actions"
     else:
         return "Local or Unknown Environment"
+    
+def get_image_digest(image):
+    command = "docker buildx imagetools inspect " + image + " | awk '/Digest:/{split($2,a,\":\"); print a[2]}'"
+    try:
+        with os.popen(command, 'r') as pipe:
+            output_string = pipe.read()
+            status = pipe.close()
+
+        if status is not None and status != 0:
+            print(f"Command failed with exit status {status}")
+            print(f"Command Output (potential error messages):\n{output_string}")
+            digest = None
+        else:
+            digest = output_string.strip()
+            if not digest: # Check if the output was empty after stripping
+                print("Command executed successfully but returned no digest.")
+                digest = None
+    except Exception as e:
+        print(f"An error occurred while running the command, and could not fetch the digest: {e}")
+        digest = None
+    return digest    
+
 
 def main():
 
