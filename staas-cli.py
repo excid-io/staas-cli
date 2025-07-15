@@ -11,6 +11,9 @@ import requests
 # global vars
 ca_file = 'staas-ca.pem'
 cosign_executable = ""
+error_str = "[!] -- Error\n\t"
+warning_str = "[!] -- Warning\n\t"
+info_str = "[!] -- Info\n\t"
 
 def sign_image(image, token, comment, bundle_output_file, upload, verbose):
     # 1. Generate payload with cosign
@@ -44,9 +47,9 @@ def sign_image(image, token, comment, bundle_output_file, upload, verbose):
         if (exit_status == 0):  # success
             print("Attached signature to image " + image)
         else:
-            print("Could not attach signature")
+            print(f"{error_str}Could not attach signature")
     else: 
-        print("Upload option set to \"False\", skipping uploading")
+        print(f"{warning_str}Upload option set to \"False\", skipping uploading")
 
     os.remove(payload_file)
     os.remove(sig_file)
@@ -78,7 +81,7 @@ def sign_blob(artifact, token, comment, output, verbose):
     response = requests.request("POST", url + "Api/Sign", headers=headers, data=payload)
     if verbose:
         print(response.text)
-    print("Response code: " + str(response.status_code))
+        print("Response code: " + str(response.status_code))
 
     print("Signed artifact " + artifact)
     with open(output, "w") as text_file:
@@ -92,7 +95,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     if digest:
         print(f"The digest of the image is: {digest}")
     else:
-        print("Failed to obtain the digest.")
+        print(f"{error_str}Failed to obtain the digest.")
         return
 
     # 1.b Predicate is stored in a file, so we need to read it an store it inside the json field.
@@ -148,7 +151,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
 
     # 5. Create manifest annotations and then attach to the image
     if upload == False:
-        print("Upload option set to \"False\", skipping uploading")
+        print(f"{warning_str}Upload option set to \"False\", skipping uploading")
         return
 
     annotations = {
@@ -193,11 +196,11 @@ def download_ca_pem(output_file):
             file.write(response.content)
         print(f'Successfully downloaded {output_file}')
     except requests.exceptions.RequestException as e:
-        print(f'Error downloading file: {e}')
+        print(f'{error_str}Error downloading file: {e}')
 
 def download_cosign():
     global cosign_executable
-    print("Cosign not found in PATH, proceeding to download it")
+    print(f"{info_str}Cosign not found in PATH, proceeding to download it")
     if os.name == 'nt':
         print("OS detected: Windows\nDownloading cosign for Windows")
         url = "https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe"
@@ -218,7 +221,7 @@ def download_cosign():
 
         print(f'Successfully downloaded {output_path}')
     except requests.exceptions.RequestException as e:
-        print(f'Error downloading file: {e}')
+        print(f'{error_str}Error downloading file: {e}')
     try: 
         if os.name == 'posix': os.chmod(cosign_executable, 0o755)
         print("Cosign installed")
@@ -252,10 +255,10 @@ def get_image_digest(image):
         else:
             digest = output_string.strip()
             if not digest: # Check if the output was empty after stripping
-                print("Command executed successfully but returned no digest.")
+                print(f"{error_str}Command executed successfully but returned no digest.")
                 digest = None
     except Exception as e:
-        print(f"An error occurred while running the command, and could not fetch the digest: {e}")
+        print(f"{error_str}An error occurred while running the command, and could not fetch the digest: {e}")
         digest = None
     return digest    
 
@@ -313,25 +316,19 @@ def main():
             download_cosign()
         
     # ======== MAIN LOGIC START ========
+    if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
+        args.upload = True
+    elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
+        args.upload = False
+    else:
+        print(f"{error_str}Please provide \"true\" or \"false\" for upload option")
+        os._exit(1)
+
     if args.command == 'sign-image':
-        if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
-            args.upload = True
-        elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
-            args.upload = False
-        else:
-            print("Please provide \"true\" or \"false\" for upload option")
-            os._exit(1)
         sign_image(args.image, args.token, args.comment, args.output, args.upload, args.verbose)
     elif args.command == 'sign-blob':
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'attest-image':
-        if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
-            args.upload = True
-        elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
-            args.upload = False
-        else:
-            print("Please provide \"true\" or \"false\" for upload option")
-            os._exit(1)
         attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.upload, args.verbose)
     else:
         parser.print_help()
