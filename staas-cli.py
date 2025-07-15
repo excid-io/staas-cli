@@ -263,7 +263,7 @@ def get_image_digest(image):
 
 def main():
     # ======== PARSER ARGUMENTS ========
-    parser = argparse.ArgumentParser(description="Sign container images and artifacts using STaaS (https://staas.excid.io). A path to an artifact is provided, and its digest is sent to STaaS. STaaS then returns the signature in a bundle. For container images, signatures and attestations can be attached to the image on the OCI registry.")
+    parser = argparse.ArgumentParser(description="Sign container images and artifacts using STaaS (https://staas.excid.io). A container image URL or a path to an artifact is provided, and its digest is sent to STaaS. STaaS then returns the signature in a bundle. For container images, signatures and attestations can be attached to the image on the OCI registry.")
     subparsers = parser.add_subparsers(dest='command')
 
     sign_image_parser = subparsers.add_parser('sign-image', help='Sign a container image and attach it on the container image')
