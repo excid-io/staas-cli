@@ -181,7 +181,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
 
     # 6. Attach
     registry = image.split('/')[0]
-    # subprocess.run(f"oras tag {image} {image_ref}:sha256-{digest}.att", shell=True)
+    subprocess.run(f"oras tag {image} {image_ref}:sha256-{digest}.att", shell=True)
     subprocess.run(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.dsse.envelope.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation-file {annotations_file}", shell=True)
     print("Uploaded attestation", flush=True)
 
