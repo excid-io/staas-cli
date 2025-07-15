@@ -185,8 +185,8 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     subprocess.run(f"oras push {image_ref}:sha256-{digest}.att \
                     --artifact-type application/vnd.dsse.envelope.v1+json \
                     {att_output_file}:application/vnd.dsse.envelope.v1+json \
-                    --annotation predicateType={intoto_statement["predicateType"]} \
-                    --annotation dev.sigstore.cosign/bundle={json.dumps(bundle_data["rekorBundle"])} \
+                    --annotation predicateType={intoto_statement['predicateType']} \
+                    --annotation dev.sigstore.cosign/bundle={json.dumps(bundle_data['rekorBundle'])} \
                     --annotation dev.sigstore.cosign/certificate={cert} \
                     --annotation dev.sigstore.cosign/chain={ca_data} \
                     --annotation dev.cosignproject.cosign/signature={signature}", shell=True)
