@@ -4,6 +4,7 @@ import base64
 import os
 import json
 import sys
+import subprocess
 import argparse
 import requests
 
@@ -173,15 +174,13 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     annotations_file = 'annotations.json'
     with open(annotations_file, 'w') as ann_file:
         json.dump(annotations, ann_file, indent=4)
-    print("Created annotations")
+    print("Created annotations", flush=True)
 
     # 6. Attach
-
     registry = image.split('/')[0]
-
-    os.system(f"oras tag {image} {image_ref}:sha256-{digest}.att")
-    os.system(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.oci.image.manifest.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation-file {annotations_file}")
-    print("Uploaded attestation")
+    subprocess.run(f"oras tag {image} {image_ref}:sha256-{digest}.att", shell=True)
+    subprocess.run(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.oci.image.manifest.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation-file {annotations_file}", shell=True)
+    print("Uploaded attestation", flush=True)
 
     os.remove(ca_file)
 
