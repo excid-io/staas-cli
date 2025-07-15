@@ -307,11 +307,12 @@ def main():
     cosign_exists = os.system("cosign version > /dev/null 2>&1")  # check if cosign exists in PATH but hide the stdout
     # if cosign not in PATH, search for it in the current directory
     if cosign_exists != 0:
-        if os.path.exists(cosign_executable):
+        if args.verbose: print("Cosign not in PATH")
+        if os.path.exists(cosign_executable) and args.verbose:
             print("Cosign found in current directory")
         else:
             download_cosign()
-
+        
     # ======== MAIN LOGIC START ========
     if args.command == 'sign-image':
         if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
