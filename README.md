@@ -80,9 +80,11 @@ You can download the binaries from the repo's releases. Windows and Linux versio
 
 ```sh
 # if on linux
+wget https://github.com/excid-io/staas-cli/releases/download/main/staas-cli
 chmod +x staas-cli
 ./staas-cli
 # if on windows
+Invoke-WebRequest -Uri "https://github.com/excid-io/staas-cli/releases/download/main/staas-cli.exe" -OutFile "staas-cli.exe"
 .\staas-cli.exe
 ```
 

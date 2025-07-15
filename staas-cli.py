@@ -182,11 +182,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     os.system(f"oras tag {image} {image_ref}:sha256-{digest}.att")
     os.system(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.oci.image.manifest.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation-file {annotations_file}")
     print("Uploaded attestation")
-    # exit_status = os.system(f"{cosign_executable} attach attestation --attestation {att_output_file} {image}")
-    # if (exit_status == 0):  # success
-    #     print("Attached attstation to image " + image)
-    # else:
-    #     print("Could not attach signature")
+
     os.remove(ca_file)
 
 def download_ca_pem(output_file):
@@ -235,13 +231,13 @@ def is_interactive():
     return sys.stdout.isatty() and sys.stdin.isatty()
 
 def detect_ci_environment():
-    print("Environment detected ", end="")
+    print("Environment detected: ", end="")
     if os.getenv('GITLAB_CI'):
         print("GitLab CI")
     elif os.getenv('GITHUB_ACTIONS'):
         print("GitHub Actions")
     else:
-        print("Local or Unknown Environment")
+        print("local or unknown environment")
     
 def get_image_digest(image):
     command = "docker buildx imagetools inspect " + image + " | awk '/Digest:/{split($2,a,\":\"); print a[2]}'"
@@ -266,7 +262,7 @@ def get_image_digest(image):
 
 
 def main():
-
+    # ======== PARSER ARGUMENTS ========
     parser = argparse.ArgumentParser(description="Sign container images and artifacts using STaaS (https://staas.excid.io). A path to an artifact is provided, and its digest is sent to STaaS. STaaS then returns the signature in a bundle. For container images, signatures and attestations can be attached to the image on the OCI registry.")
     subparsers = parser.add_subparsers(dest='command')
 
@@ -296,19 +292,27 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
 
-    if is_interactive():
-        print("Interactive mode detected")
-    else:
-        print("Non-interactive mode detected")
+    # if is_interactive():
+    #     print("Interactive mode detected")
+    # else:
+    #     print("Non-interactive mode detected")
+    # detect_ci_environment()
 
-    detect_ci_environment()
-    
+    # ======== SEARCH FOR COSIGN IN SYSTEM ========
     global cosign_executable
-    cosign_executable = "cosign"
-    cosign_exists = os.system("cosign version > /dev/null 2>&1")  # check if cosign exists but hide the stdout
+    if os.name == 'nt':
+        cosign_executable = ".\\cosign.exe"
+    elif os.name == 'posix':
+        cosign_executable = "./cosign"
+    cosign_exists = os.system("cosign version > /dev/null 2>&1")  # check if cosign exists in PATH but hide the stdout
+    # if cosign not in PATH, search for it in the current directory
     if cosign_exists != 0:
-        download_cosign()
+        if os.path.exists(cosign_executable):
+            print("Cosign found in current directory")
+        else:
+            download_cosign()
 
+    # ======== MAIN LOGIC START ========
     if args.command == 'sign-image':
         if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
             args.upload = True
