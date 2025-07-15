@@ -169,7 +169,7 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
     with open(ca_file, 'r') as ca:
         ca_data = ca.read()
     annotations[att_output_file]["dev.sigstore.cosign/chain"] = ca_data
-    annotations["dev.cosignproject.cosign/signature"] = signature
+    # annotations["dev.cosignproject.cosign/signature"] = signature
 
     annotations_file = 'annotations.json'
     with open(annotations_file, 'w') as ann_file:
