@@ -88,106 +88,49 @@ def sign_blob(artifact, token, comment, output, verbose):
         text_file.write(response.text)
     print("Wrote bundle to " + output)
 
-def attest(image, predicate, predicate_type, token, comment, att_output_file, bundle_output_file, upload, verbose):
-    # 1. Craft in-toto statement using predicate_type and predicate
-    # 1.a Get digest of provided image
-    digest = get_image_digest(image)
-    if digest:
-        print(f"The digest of the image is: {digest}")
-    else:
-        print(f"{error_str}Failed to obtain the digest.")
-        return
+def attest(image, predicate, predicate_type, token, subject, root_ca_file):
+    # safety check: remove old keys and certificate (leftovers)
+    files_to_delete = [
+        "private.key",
+        "public.key",
+        "staas.csr",
+        "staas.crt",
+        "import-cosign.key",
+        "import-cosign.pub"
+    ]
+    for file in files_to_delete:
+        try:
+            os.remove(file)
+        except:
+            pass
+    # 1. run `staas-cli issue-certificate`, 2. run `cosign import-key-pair`, 3. run `cosign attest`
+    # 1. generate key pair and certificate 
+    issue(token, subject, "staas.crt")  # this stores private.key, public.key, staas.csr and staas.crt in the same directory
+    print("Issued short-lived certificate")
 
-    # 1.b Predicate is stored in a file, so we need to read it an store it inside the json field.
-    image_ref = image.split(':')[0]  # remove the ":TAG" from the image string
-    intoto_statement = {
-        "_type": "https://in-toto.io/Statement/v0.1",
-        "predicateType": predicate_type,
-        "subject": [{
-            "name": image_ref,
-            "digest": {
-                "sha256": digest
-            }
-        }],
-        "predicate": "<PREDICATE>"
-    }
-    with open(predicate, 'r') as predicate_file:
-        predicate_data = json.load(predicate_file)
+    # 2. import key pair in cosign
+    subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True)
+    subprocess.run(f"echo $COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True)
     
-    intoto_statement["predicate"] = predicate_data
+    # 3. attest
+    subprocess.run(f"echo $COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True)
+    print("Uploaded attestation")
 
-    with open('intoto.json', 'w') as intoto_file:
-        json.dump(intoto_statement, intoto_file, indent=4)
-    print("Created in-toto statement")
+    subprocess.run("unset COSIGN_PASSWORD", shell=True)    
+    command = [
+        "shred", "-u", 
+        "private.key", 
+        "public.pub", 
+        "staas.csr", 
+        "staas.crt", 
+        "import-cosign.key", 
+        "import-cosign.pub"
+    ]
+    subprocess.run(command, check=True)
 
-    if (verbose):
-        print(intoto_statement)
 
-    # 2. Sign in-toto statement using STaaS
-    sign_blob('intoto.json', token, comment, bundle_output_file, verbose)
 
-    # 3. Craft DSSE envelope
-    dsse = {
-        "payloadType": "application/vnd.in-toto+json",
-        "payload": "<Base64(INTOTO-STATEMENT)>",
-        "signatures": [{
-            "sig": "<Base64(SIGNATURE)>"
-        }]
-    }
-    # 3.a Set the payload
-    payload_base64 = base64.b64encode(json.dumps(intoto_statement).encode('utf-8')).decode('utf-8')
-    dsse["payload"] = payload_base64
-    os.remove('intoto.json') # no need for the file anymore
-    # 3.b Set the signature (stored in intoto.json.bundle)
-    with open(bundle_output_file, 'r') as bundle_file:
-        bundle_data = json.load(bundle_file)
-        signature = bundle_data["base64Signature"]
-    dsse['signatures'][0]['sig'] = signature
-
-    # 4. Dump DSSE into a file
-    with open(att_output_file, 'w') as attestation_file:
-        json.dump(dsse, attestation_file, indent=4)
-    print("Created DSSE envelope")
-
-    # 5. Create manifest annotations and then attach to the image
-    if upload == False:
-        print(f"{warning_str}Upload option set to \"False\", skipping uploading")
-        return
-
-    annotations = {
-        att_output_file : {
-            "dev.cosignproject.cosign/signature": "",
-            "dev.sigstore.cosign/bundle": "",
-            "dev.sigstore.cosign/certificate": "",
-            "dev.sigstore.cosign/chain": "",
-            "predicateType": ""
-        }
-    }
-
-    annotations[att_output_file]["predicateType"] = intoto_statement["predicateType"]
-    annotations[att_output_file]["dev.sigstore.cosign/bundle"] = json.dumps(bundle_data["rekorBundle"])
-    cert = base64.b64decode(bundle_data.get("cert")).decode('utf-8')
-    annotations[att_output_file]["dev.sigstore.cosign/certificate"] = cert
-    download_ca_pem(ca_file)
-    with open(ca_file, 'r') as ca:
-        ca_data = ca.read()
-    annotations[att_output_file]["dev.sigstore.cosign/chain"] = ca_data
-    annotations["dev.cosignproject.cosign/signature"] = signature
-
-    annotations_file = 'annotations.json'
-    with open(annotations_file, 'w') as ann_file:
-        json.dump(annotations, ann_file, indent=4)
-    print("Created annotations", flush=True)
-
-    # 6. Attach
-    registry = image.split('/')[0]
-    # subprocess.run(f"oras tag {image} {image_ref}:sha256-{digest}.att", shell=True)
-    subprocess.run(f"oras push {image_ref}:sha256-{digest}.att --artifact-type application/vnd.dsse.envelope.v1+json {att_output_file}:application/vnd.dsse.envelope.v1+json --annotation predicateType={intoto_statement['predicateType']} --annotation dev.sigstore.cosign/bundle={json.dumps(bundle_data['rekorBundle'])} --annotation dev.sigstore.cosign/certificate={cert} --annotation dev.sigstore.cosign/chain={ca_data} --annotation dev.cosignproject.cosign/signature={signature}", shell=True)
-    print("Uploaded attestation", flush=True)
-
-    os.remove(ca_file)
-
-def issue(token, subject, cert_output_file, verbose):
+def issue(token, subject, cert_output_file):
     subprocess.run(f"openssl ecparam -name prime256v1 -genkey -noout -out private.key", shell=True)
     subprocess.run(f"openssl ec -in private.key -pubout -out public.pub", shell=True)
     print("Generated key pair")
@@ -204,15 +147,12 @@ def issue(token, subject, cert_output_file, verbose):
         data = file.read()
 
     response = requests.request("POST", url + "Api/Issue", headers=headers, data=data)
-    if verbose:
-        print(response.text)
-        print("Response code: " + str(response.status_code))
     
-    print("Issued certificate")
+    print("Issued short-lived certificate")
     with open(cert_output_file, "w") as crt_file:
         crt_file.write(response.text)
 
-    print("Wrote certificate in file " + cert_output_file)
+    print("Stored certificate in file " + cert_output_file)
 
 
 def download_ca_pem(output_file):
@@ -298,40 +238,32 @@ def main():
 
     sign_image_parser = subparsers.add_parser('sign-image', help='Sign a container image and attach it on the container image')
     sign_image_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
-    sign_image_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
+    sign_image_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Image w/ STaaS CLI', help='A comment to accompany the signing (STaaS-specific info, not related to signature)')
     sign_image_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
     sign_image_parser.add_argument('--upload', default='True', metavar='', required=False, help='Attach the signature on the OCI registry (default is True)')
     sign_image_parser.add_argument('image', type=str, metavar='', help='Image to sign. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
     sign_blob_parser = subparsers.add_parser('sign-blob', help='Sign a blob (arbitrary artifact)')
     sign_blob_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
-    sign_blob_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Blob w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
+    sign_blob_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Signed Blob w/ STaaS CLI', help='A comment to accompany the signing (STaaS-specific info, not related to signature)')
     sign_blob_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
     sign_blob_parser.add_argument('artifact', type=str, metavar='', help='Path to the artifact to sign')
 
     attest_parser = subparsers.add_parser('attest-image', help='Create an attestation for a container image. Crafts in-toto statements, signs them, and creates a DSSE envelope which is attached to the image')
     attest_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
-    attest_parser.add_argument('-p','--predicate', type=str, metavar='', required=True, help='Predicate of in-toto statement')
-    attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', dest='predicate_type', required=True, help='Predicate type of in-toto statement (provide URIs like https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
-    attest_parser.add_argument('-c', '--comment', type=str, metavar='', required=False, default='Attested Image w/ STaaS CLI', help='A comment to accompany the signing (staas-specific info, not related to signature)')
-    attest_parser.add_argument('-oa', '--output-attestation', type=str, metavar='', dest='output_attestation', required=False, default='dsse-output.att', help='Name of attestation output file (default is dsse-output.att)')
-    attest_parser.add_argument('-ob', '--output-bundle', type=str, metavar='', dest='output_bundle', required=False, default='output.bundle', help='Name of the bundle output file (default is output.bundle)')
-    attest_parser.add_argument('--upload', default='True', metavar='', required=False, help='Attach the signature on the OCI registry (default is True)')
+    attest_parser.add_argument('-s','--subject', type=str, metavar='', required=True, help='Subject that attests the image (used to issue short-lived certificate by STaaS)')
+    attest_parser.add_argument('-p','--predicate', type=str, metavar='', required=True, help='Path to predicate file')
+    attest_parser.add_argument('-y','--predicate-type', type=str, metavar='', dest='predicate_type', required=True, help='Predicate type of in-toto statement (provide full URIs such as https://cyclonedx.org/bom, https://slsa.dev/provenance/v1 etc)')
+    attest_parser.add_argument('-r','--root-ca-file', type=str, metavar='', dest='root_ca_file', required=True, help='Path to STaaS CA file (used to attach it on attestation metadata for verification purposes)')
     attest_parser.add_argument('image', type=str, metavar='', help='Image to attest. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
-    issue_cert = subparsers.add_parser('issue-certificate', help='Generate a key-pair and ask STaaS CA to issue a public key certificate')
-    issue_cert.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
-    issue_cert.add_argument('-s', '--subject', type=str, metavar='', required=False, help='Subject requesting the certificate (set it to STAAS_EMAIL owning the token)')
-    issue_cert.add_argument('-o', '--output', type=str, metavar='', required=False, default='staas.crt', help='Name of the .crt output file (default is staas.crt)')
+    issue_cert_parser = subparsers.add_parser('issue-certificate', help='Generate a key-pair and ask STaaS CA to issue a public key certificate')
+    issue_cert_parser.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
+    issue_cert_parser.add_argument('-s', '--subject', type=str, metavar='', required=True, help='Subject requesting the certificate (set it to STAAS_EMAIL owning the token)')
+    issue_cert_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='staas.crt', help='Name of the .crt output file (default is staas.crt)')
 
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
-
-    # if is_interactive():
-    #     print("Interactive mode detected")
-    # else:
-    #     print("Non-interactive mode detected")
-    # detect_ci_environment()
 
     # ======== SEARCH FOR COSIGN IN SYSTEM ========
     global cosign_executable
@@ -361,16 +293,9 @@ def main():
     elif args.command == 'sign-blob':
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'attest-image':
-        if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
-            args.upload = True
-        elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
-            args.upload = False
-        else:
-            print(f"{error_str}Please provide \"true\" or \"false\" for upload option")
-            os._exit(1)
-        attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.upload, args.verbose)
+        attest(args.image, args.predicate, args.predicate_type, args.token, args.subject, args.root_ca_file)
     elif args.command == 'issue-certificate':
-        issue(args.token, args.subject, args.output, args.verbose)
+        issue(args.token, args.subject, args.output)
     else:
         parser.print_help()
         os._exit(0)
