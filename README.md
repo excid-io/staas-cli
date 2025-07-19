@@ -5,26 +5,26 @@ A command-line tool for signing artifacts using STaaS (Signing as a Service). Th
 Prerequisites: 
 1. `docker` exists in your system
 2. `cosign` exists in your system (staas-cli downloads it for you if it does not exist)  
-3. `oras` exists in your system (used for uploading attestations)
 
 ```text
 $ python3 staas-cli.py -h
 
-usage: staas-cli.py [-h] [-v] {sign-image,sign-blob,attest-image} ...
+usage: staas-cli.py [-h] [-v] {sign-image,sign-blob,attest-image,issue-certificate} ...
 
-Sign container images and artifacts using STaaS (https://staas.excid.io). A
-path to an artifact is provided, and its digest is sent to STaaS. STaaS then
-returns the signature in a bundle. For container images, signatures and
-attestations can be attached to the image on the OCI registry.
+Sign container images and artifacts using STaaS (https://staas.excid.io). A container image
+URL or a path to an artifact is provided, and its digest is sent to STaaS. STaaS then
+returns the signature in a bundle. For container images, signatures and attestations can be
+attached to the image on the OCI registry.
 
 positional arguments:
-  {sign-image,sign-blob,attest-image}
-    sign-image          Sign a container image and attach it on the container
-                        image
+  {sign-image,sign-blob,attest-image,issue-certificate}
+    sign-image          Sign a container image and attach it on the container image
     sign-blob           Sign a blob (arbitrary artifact)
-    attest-image        Create an attestation for a container image. Crafts
-                        in-toto statements, signs them, and creates a DSSE
-                        envelope which is attached to the image
+    attest-image        Create an attestation for a container image. Crafts in-toto
+                        statements, signs them, and creates a DSSE envelope which is
+                        attached to the image
+    issue-certificate   Generate a key-pair and ask STaaS CA to issue a public key
+                        certificate
 
 options:
   -h, --help            show this help message and exit
@@ -37,6 +37,7 @@ The commands available right now are:
 - sign-image
 - sign-blob
 - attest-image
+- issue-certificate
 
 ### Signing container images
 
@@ -71,6 +72,18 @@ This command creates in-toto based attestations using STaaS. It accepts a file c
 cosign verify-attestation $IMAGE:$TAG --type $PREDICATE_TYPE --certificate-identity $STAAS_EMAIL --certificate-oidc-issuer "https://staas.excid.io" --certificate-chain staas-ca.pem --certificate $CERT_FILE --insecure-ignore-sct
 ```
 
+### Short-lived certificates issuance
+
+In case you want to use `cosign` with your own keys you can have STaaS generate the short-lived public key certificate for you.
+```sh
+python3 staas-cli.py issue-certificate --token $STAAS_TOKEN --subject $STAAS_EMAIL --output $CRT_OUTPUT_FILE
+```
+This will generate a key-pair locally and a CSR which is sent to STaaS. STaaS then returns the certificate which is stored locally. Consequently, you can use cosign for signing events.
+
+```sh
+cosign import-key-pair --key private.key
+cosign sign --key import-cosign.key --certificate staas.crt $IMAGE:$TAG
+```
 
 ## Installation
 

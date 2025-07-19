@@ -109,7 +109,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     print("Issued short-lived certificate")
 
     # 2. import key pair in cosign
-    subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True)
+    subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True) # Note: this does not work on Windows
     subprocess.run(f"echo $COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True)
     
     # 3. attest
