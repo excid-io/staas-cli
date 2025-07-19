@@ -349,19 +349,25 @@ def main():
             download_cosign()
         
     # ======== MAIN LOGIC START ========
-    if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
-        args.upload = True
-    elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
-        args.upload = False
-    else:
-        print(f"{error_str}Please provide \"true\" or \"false\" for upload option")
-        os._exit(1)
-
     if args.command == 'sign-image':
+        if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
+            args.upload = True
+        elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
+            args.upload = False
+        else:
+            print(f"{error_str}Please provide \"true\" or \"false\" for upload option")
+            os._exit(1)
         sign_image(args.image, args.token, args.comment, args.output, args.upload, args.verbose)
     elif args.command == 'sign-blob':
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'attest-image':
+        if args.upload in {'True', 'true', 'y', 'yes', 'Y'}:
+            args.upload = True
+        elif args.upload in {'False', 'false', 'n', 'no', 'N'}:
+            args.upload = False
+        else:
+            print(f"{error_str}Please provide \"true\" or \"false\" for upload option")
+            os._exit(1)
         attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.upload, args.verbose)
     elif args.command == 'issue-certificate':
         issue(args.token, args.subject, args.output, args.verbose)
