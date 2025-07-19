@@ -64,15 +64,15 @@ cosign verify-blob $YOUR_FILE --certificate-identity $STAAS_EMAIL --certificate-
 ### Attest container images
 
 ```sh
-python3 staas-cli.py attest-image $IMAGE:$TAG --token $STAAS_API_TOKEN --comment $COMMENT --output-bundle $BUNDLE_OUTPUT_FILE --output-attestation $ATTESTATION_OUTPUT_FILE
+python3 staas-cli.py attest-image $IMAGE:$TAG --token $STAAS_API_KEY --predicate-type $PREDICATE_TYPE --predicate $PATH_TO_PREDICATE_FILE --root-ca-file $PATH_TO_CA_FILE --subject $STAAS_EMAIL
 ```
-This command creates in-toto based attestations using STaaS. It accepts a file containing a predicate, and a predicate type for a specific image. It crafts the in-toto statement as a json, then signs it with STaaS, and finally creates the DSSE envelope which is attached to the image repository. Verify with:
+This command creates in-toto based attestations using STaaS. It accepts a file containing a predicate, and the predicate type for the in-toto statement. It generates a key pair locally, issues a public-key certificate with STaaS, attests and uploads the attestation on the OCI registry. The reason why a subject (the email associated with the STaaS token) is needed is because the short-lived certificate needs a subject field (CN/Common Name). If you are using staas-cli container image, the path to root CA file is `/staas/staas-ca.pem`. Verify with:
 
 ```sh
 cosign verify-attestation $IMAGE:$TAG --type $PREDICATE_TYPE --certificate-identity $STAAS_EMAIL --certificate-oidc-issuer "https://staas.excid.io" --certificate-chain staas-ca.pem --certificate $CERT_FILE --insecure-ignore-sct
 ```
 
-### Short-lived certificates issuance
+### Issue short-lived certificate
 
 In case you want to use `cosign` with your own keys you can have STaaS generate the short-lived public key certificate for you.
 ```sh
@@ -82,7 +82,7 @@ This will generate a key-pair locally and a CSR which is sent to STaaS. STaaS th
 
 ```sh
 cosign import-key-pair --key private.key
-cosign sign --key import-cosign.key --certificate staas.crt $IMAGE:$TAG
+cosign sign --key import-cosign.key --certificate $CRT_OUTPUT_FILE $IMAGE:$TAG
 ```
 
 ## Installation
@@ -95,10 +95,10 @@ You can download the binaries from the repo's releases. Windows and Linux versio
 # if on linux
 wget https://github.com/excid-io/staas-cli/releases/download/main/staas-cli
 chmod +x staas-cli
-./staas-cli
+./staas-cli -h
 # if on windows
 Invoke-WebRequest -Uri "https://github.com/excid-io/staas-cli/releases/download/main/staas-cli.exe" -OutFile "staas-cli.exe"
-.\staas-cli.exe
+.\staas-cli.exe -h
 ```
 
 #### Container image
@@ -121,7 +121,7 @@ pip install -r requirements.txt
 
 ## STaaS CA
 
-In order to run verifications, you need to provide the STaaS CA pem file to cosign. You can get this file by running:
+In some signing scenarios and in all verifications, you need to provide the STaaS CA pem file to cosign. You can get this file by running:
 ```sh
 wget http://staas.excid.io/Sign/Certificate -O staas-ca.pem
 ```

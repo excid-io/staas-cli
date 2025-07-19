@@ -267,15 +267,15 @@ def main():
 
     # ======== SEARCH FOR COSIGN IN SYSTEM ========
     global cosign_executable
-    if os.name == 'nt':
-        cosign_executable = ".\\cosign.exe"
-    elif os.name == 'posix':
-        cosign_executable = "./cosign"
-    cosign_exists = os.system("cosign version > /dev/null 2>&1")  # check if cosign exists in PATH but hide the stdout
+    cosign_executable = "cosign"
+    cosign_exists = os.system(f"{cosign_executable} version > /dev/null 2>&1")  # check if cosign exists in PATH but hide the stdout
     # if cosign not in PATH, search for it in the current directory
     if cosign_exists != 0:
-        if args.verbose: print("Cosign not in PATH")
-        if os.path.exists(cosign_executable) and args.verbose:
+        if os.name == 'nt':
+            cosign_executable = ".\\cosign.exe"
+        elif os.name == 'posix':
+            cosign_executable = "./cosign"
+        if os.path.exists(cosign_executable):
             print("Cosign found in current directory")
         else:
             download_cosign()
