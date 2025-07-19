@@ -187,6 +187,34 @@ def attest(image, predicate, predicate_type, token, comment, att_output_file, bu
 
     os.remove(ca_file)
 
+def issue(token, subject, cert_output_file, verbose):
+    subprocess.run(f"openssl ecparam -name prime256v1 -genkey -noout -out private.key", shell=True)
+    subprocess.run(f"openssl ec -in private.key -pubout -out public.pub", shell=True)
+    print("Generated key pair")
+    subprocess.run(f"openssl req -new -key private.key -subj \"/CN={subject}\" -out staas.csr")
+    print("Generated csr")
+    
+    url="https://staas.excid.io/"
+    headers = {
+    'Content-Type': 'text/plain',
+    'Authorization': 'Basic ' + token
+    }
+
+    with open("staas.csr", "rb") as file:
+        data = file.read()
+
+    response = requests.request("POST", url + "Api/Issue", headers=headers, data=data)
+    if verbose:
+        print(response.text)
+        print("Response code: " + str(response.status_code))
+    
+    print("Issued certificate")
+    with open(cert_output_file, "w") as crt_file:
+        crt_file.write(response.text)
+
+    print("Wrote certificate in file " + cert_output_file)
+
+
 def download_ca_pem(output_file):
     url = "http://staas.excid.io/Sign/Certificate"
     try:
@@ -291,6 +319,11 @@ def main():
     attest_parser.add_argument('--upload', default='True', metavar='', required=False, help='Attach the signature on the OCI registry (default is True)')
     attest_parser.add_argument('image', type=str, metavar='', help='Image to attest. Provide full URL to container registry e.g., registry.gitlab.com/some/repository')
 
+    issue_cert = subparsers.add_parser('issue-certificate', help='Generate a key-pair and ask STaaS CA to issue a public key certificate')
+    issue_cert.add_argument('-t','--token', type=str, metavar='', required=True, help='Authorization token to access STaaS API')
+    issue_cert.add_argument('-s', '--subject', type=str, metavar='', required=False, help='Subject requesting the certificate (set it to STAAS_EMAIL owning the token)')
+    issue_cert.add_argument('-o', '--output', type=str, metavar='', required=False, default='staas.crt', help='Name of the .crt output file (default is staas.crt)')
+
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
 
@@ -330,6 +363,8 @@ def main():
         sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
     elif args.command == 'attest-image':
         attest(args.image, args.predicate, args.predicate_type, args.token, args.comment, args.output_attestation, args.output_bundle, args.upload, args.verbose)
+    elif args.command == 'issue-certificate':
+        issue(args.token, args.subject, args.output, args.verbose)
     else:
         parser.print_help()
         os._exit(0)
