@@ -191,7 +191,7 @@ def issue(token, subject, cert_output_file, verbose):
     subprocess.run(f"openssl ecparam -name prime256v1 -genkey -noout -out private.key", shell=True)
     subprocess.run(f"openssl ec -in private.key -pubout -out public.pub", shell=True)
     print("Generated key pair")
-    subprocess.run(f"openssl req -new -key private.key -subj \"/CN={subject}\" -out staas.csr")
+    subprocess.run(f"openssl req -new -key private.key -subj \"/CN={subject}\" -out staas.csr", shell=True)
     print("Generated csr")
     
     url="https://staas.excid.io/"
