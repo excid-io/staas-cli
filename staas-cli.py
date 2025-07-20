@@ -15,7 +15,7 @@ error_str = "[!] -- Error\n\t"
 warning_str = "[!] -- Warning\n\t"
 info_str = "[!] -- Info\n\t"
 
-def sign_image(image, token, comment, bundle_output_file, upload, verbose):
+def sign_image(image, token, comment, bundle_output_file, upload):
     # 1. Generate payload with cosign
     try:
         result = subprocess.run(f'{cosign_executable} generate {image} > payload.json', shell=True, check=True, text=True, capture_output=True)
@@ -27,7 +27,7 @@ def sign_image(image, token, comment, bundle_output_file, upload, verbose):
     print("Generated image payload json ")
     payload_file = 'payload.json'
     # 2. Sign image with STaaS
-    sign_blob(payload_file, token, comment, bundle_output_file, verbose)
+    sign_blob(payload_file, token, comment, bundle_output_file)
 
     # 3. Attach signature to OCI registry
     with open(bundle_output_file, 'r') as infile:
@@ -77,7 +77,7 @@ def sign_image(image, token, comment, bundle_output_file, upload, verbose):
     os.remove(rekor_file)
     os.remove(ca_file)
 
-def sign_blob(artifact, token, comment, output, verbose):
+def sign_blob(artifact, token, comment, output):
     with open(artifact,"rb") as f:
         bytes = f.read() # read entire file as bytes
         artifact_digest = hashlib.sha256(bytes).digest()
@@ -156,7 +156,6 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
         "import-cosign.pub"
     ]
     subprocess.run(command, check=True)
-
 
 def issue(token, subject, cert_output_file):
     try:
@@ -296,7 +295,6 @@ def main():
     issue_cert_parser.add_argument('-s', '--subject', type=str, metavar='', required=True, help='Subject requesting the certificate (set it to STAAS_EMAIL owning the token)')
     issue_cert_parser.add_argument('-o', '--output', type=str, metavar='', required=False, default='staas.crt', help='Name of the .crt output file (default is staas.crt)')
 
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     args = parser.parse_args()
 
     # ======== SEARCH FOR COSIGN IN SYSTEM ========
@@ -323,9 +321,9 @@ def main():
         else:
             print(f"{error_str}Please provide \"true\" or \"false\" for upload option")
             os._exit(1)
-        sign_image(args.image, args.token, args.comment, args.output, args.upload, args.verbose)
+        sign_image(args.image, args.token, args.comment, args.output, args.upload)
     elif args.command == 'sign-blob':
-        sign_blob(args.artifact, args.token, args.comment, args.output, args.verbose)
+        sign_blob(args.artifact, args.token, args.comment, args.output)
     elif args.command == 'attest-image':
         attest(args.image, args.predicate, args.predicate_type, args.token, args.subject, args.root_ca_file)
     elif args.command == 'issue-certificate':
