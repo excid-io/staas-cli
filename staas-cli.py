@@ -185,9 +185,7 @@ def issue(token, subject, cert_output_file):
     print("Issued short-lived certificate")
     with open(cert_output_file, "w") as crt_file:
         crt_file.write(response.text)
-
     print("Stored certificate in file " + cert_output_file)
-
 
 def download_ca_pem(output_file):
     url = "http://staas.excid.io/Sign/Certificate"
