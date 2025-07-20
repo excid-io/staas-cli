@@ -1,6 +1,6 @@
-FROM python:3.9
+FROM docker
 
-RUN apt install curl jq cosign
+RUN apk --no-cache add curl jq python3 py3-pip cosign
 
 WORKDIR /staas
 
