@@ -17,7 +17,13 @@ info_str = "[!] -- Info\n\t"
 
 def sign_image(image, token, comment, bundle_output_file, upload, verbose):
     # 1. Generate payload with cosign
-    os.system(f'{cosign_executable} generate {image} > payload.json')
+    try:
+        result = subprocess.run(f'{cosign_executable} generate {image} > payload.json', shell=True, check=True, text=True, capture_output=True)
+        if result.stdout != "": print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"{error_str}{e.stderr}")
+        os._exit(1)
+    
     print("Generated image payload json ")
     payload_file = 'payload.json'
     # 2. Sign image with STaaS
@@ -43,11 +49,25 @@ def sign_image(image, token, comment, bundle_output_file, upload, verbose):
     download_ca_pem(ca_file)
 
     if upload == True:
-        exit_status = os.system(f'{cosign_executable} attach signature {image} --signature {sig_file} --payload {payload_file} --certificate-chain {ca_file} --certificate {cert_file} --rekor-response {rekor_file}')
-        if (exit_status == 0):  # success
+        command = [
+            cosign_executable, 
+            'attach', 
+            'signature', 
+            image,
+            '--signature', sig_file,
+            '--payload', payload_file,
+            '--certificate-chain', ca_file,
+            '--certificate', cert_file,
+            '--rekor-response', rekor_file
+        ]
+        try:
+            result = subprocess.run(command, check=True, text=True, capture_output=True)
+            if result.stdout != "": print(result.stdout)
             print("Attached signature to image " + image)
-        else:
-            print(f"{error_str}Could not attach signature")
+        except subprocess.CalledProcessError as e:
+            print(f"{error_str}{e.stderr}")
+            print("Could not attach signature, exiting")
+            os._exit(1)
     else: 
         print(f"{warning_str}Upload option set to \"False\", skipping uploading")
 
@@ -58,7 +78,6 @@ def sign_image(image, token, comment, bundle_output_file, upload, verbose):
     os.remove(ca_file)
 
 def sign_blob(artifact, token, comment, output, verbose):
-
     with open(artifact,"rb") as f:
         bytes = f.read() # read entire file as bytes
         artifact_digest = hashlib.sha256(bytes).digest()
@@ -75,13 +94,7 @@ def sign_blob(artifact, token, comment, output, verbose):
         "Comment":"{comment}"
     }} """
 
-    if verbose:
-        print(payload)
-
     response = requests.request("POST", url + "Api/Sign", headers=headers, data=payload)
-    if verbose:
-        print(response.text)
-        print("Response code: " + str(response.status_code))
 
     print("Signed artifact " + artifact)
     with open(output, "w") as text_file:
@@ -89,7 +102,7 @@ def sign_blob(artifact, token, comment, output, verbose):
     print("Wrote bundle to " + output)
 
 def attest(image, predicate, predicate_type, token, subject, root_ca_file):
-    # safety check: remove old keys and certificate (leftovers)
+    # safety check: remove old keys and certificates (leftovers)
     files_to_delete = [
         "private.key",
         "public.key",
@@ -109,11 +122,27 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     print("Issued short-lived certificate")
 
     # 2. import key pair in cosign
-    subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True) # Note: this does not work on Windows
-    subprocess.run(f"echo $COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True)
-    
+    try:
+        result = subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True, text=True, check=True, capture_output=True) # Note: this does not work on Windows
+        if result.stdout != "": print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"{error_str}{e.stderr}")
+        os._exit(1) 
+    try:
+        subprocess.run(f"echo $COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
+        if result.stdout != "": print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"{error_str}{e.stderr}")
+        os._exit(1) 
+
     # 3. attest
-    subprocess.run(f"echo $COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True)
+    try:
+        result = subprocess.run(f"echo $COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
+        if result.stdout != "": print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"{error_str}{e.stderr}")
+        os._exit(1) 
+
     print("Uploaded attestation")
 
     subprocess.run("unset COSIGN_PASSWORD", shell=True)    
@@ -129,18 +158,24 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     subprocess.run(command, check=True)
 
 
-
 def issue(token, subject, cert_output_file):
-    subprocess.run(f"openssl ecparam -name prime256v1 -genkey -noout -out private.key", shell=True)
-    subprocess.run(f"openssl ec -in private.key -pubout -out public.pub", shell=True)
-    print("Generated key pair")
-    subprocess.run(f"openssl req -new -key private.key -subj \"/CN={subject}\" -out staas.csr", shell=True)
-    print("Generated csr")
+    try:
+        result = subprocess.run(f"openssl ecparam -name prime256v1 -genkey -noout -out private.key", shell=True, text=True, check=True, capture_output=True)
+        if result.stdout != "": print(result.stdout)
+        result = subprocess.run(f"openssl ec -in private.key -pubout -out public.pub", shell=True, text=True, check=True, capture_output=True)
+        if result.stdout != "": print(result.stdout)
+        print("Generated key pair")
+        result = subprocess.run(f"openssl req -new -key private.key -subj \"/CN={subject}\" -out staas.csr", shell=True, text=True, check=True, capture_output=True)
+        if result.stdout != "": print(result.stdout)
+        print("Generated csr")
+    except subprocess.CalledProcessError as e:
+        print(f"{error_str}{e.stderr}")
+        os._exit(1) 
     
     url="https://staas.excid.io/"
     headers = {
-    'Content-Type': 'text/plain',
-    'Authorization': 'Basic ' + token
+        'Content-Type': 'text/plain',
+        'Authorization': 'Basic ' + token
     }
 
     with open("staas.csr", "rb") as file:
@@ -195,7 +230,6 @@ def download_cosign():
         print("Cosign installed")
     except Exception as e:
         print(f'Error moving and changing file permissions: {e}')
-    print()
 
 def is_interactive():
     return sys.stdout.isatty() and sys.stdin.isatty()
