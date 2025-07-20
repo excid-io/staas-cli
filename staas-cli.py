@@ -123,13 +123,19 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
 
     # 2. import key pair in cosign
     try:
-        result = subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True, text=True, check=True, capture_output=True) # Note: this does not work on Windows
+        if os.name == 'nt':
+            result = subprocess.run(f"$env:COSIGN_PASSWORD = Get-Random", shell=True, text=True, check=True, capture_output=True)
+        elif os.name == 'posix':
+            result = subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True, text=True, check=True, capture_output=True)
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
         os._exit(1) 
     try:
-        subprocess.run(f"echo $COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
+        if os.name == 'nt':
+            result = subprocess.run(f"echo $env:COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
+        elif os.name == 'posix':
+            result = subprocess.run(f"echo $COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
@@ -137,7 +143,10 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
 
     # 3. attest
     try:
-        result = subprocess.run(f"echo $COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
+        if os.name == 'nt':
+            result = subprocess.run(f"echo $env:COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
+        elif os.name == 'posix':
+            result = subprocess.run(f"echo $COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
