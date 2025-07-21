@@ -130,7 +130,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
-        os._exit(1) 
+        os._exit(2) 
     try:
         if os.name == 'nt':
             result = subprocess.run(f"echo $env:COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
@@ -139,7 +139,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
-        os._exit(1) 
+        os._exit(3) 
 
     # 3. attest
     try:
@@ -150,7 +150,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
-        os._exit(1) 
+        os._exit(4) 
 
     print("Uploaded attestation")
 
