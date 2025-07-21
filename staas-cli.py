@@ -119,8 +119,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     # 1. run `staas-cli issue-certificate`, 2. run `cosign import-key-pair`, 3. run `cosign attest`
     # 1. generate key pair and certificate 
     issue(token, subject, "staas.crt")  # this stores private.key, public.key, staas.csr and staas.crt in the same directory
-    print("Issued short-lived certificate")
-
+    
     # 2. import key pair in cosign
     try:
         if os.name == 'nt':
@@ -133,9 +132,9 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
         os._exit(2) 
     try:
         if os.name == 'nt':
-            result = subprocess.run(f"echo $env:COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
+            result = subprocess.run(f"echo $env:COSIGN_PASSWORD | {cosign_executable} import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
         elif os.name == 'posix':
-            result = subprocess.run(f"echo $COSIGN_PASSWORD | cosign import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
+            result = subprocess.run(f"echo $COSIGN_PASSWORD | {cosign_executable} import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
@@ -144,9 +143,9 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     # 3. attest
     try:
         if os.name == 'nt':
-            result = subprocess.run(f"echo $env:COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
+            result = subprocess.run(f"echo $env:COSIGN_PASSWORD | {cosign_executable} attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
         elif os.name == 'posix':
-            result = subprocess.run(f"echo $COSIGN_PASSWORD | cosign attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
+            result = subprocess.run(f"echo $COSIGN_PASSWORD | {cosign_executable} attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
         if result.stdout != "": print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
@@ -174,7 +173,7 @@ def issue(token, subject, cert_output_file):
     from cryptography.hazmat.primitives.asymmetric import padding
     from cryptography.hazmat.primitives import hashes
     from cryptography.x509 import Name, NameAttribute, CertificateSigningRequestBuilder
-    import cryptography.x509 as x509  # Import x509 module
+    import cryptography.x509 as x509
 
     # Generate an EC private key
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
@@ -186,6 +185,7 @@ def issue(token, subject, cert_output_file):
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption()  # No encryption
         ))
+    print("Generated private key")
 
     # Generate the public key
     public_key = private_key.public_key()
@@ -196,6 +196,7 @@ def issue(token, subject, cert_output_file):
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         ))
+    print("Generated public key")
 
     # Create a CSR
     subject = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, subject)])
@@ -205,7 +206,7 @@ def issue(token, subject, cert_output_file):
     with open("staas.csr", "wb") as f:
         f.write(csr.public_bytes(serialization.Encoding.PEM))
 
-    print("Private key, public key, and CSR generated successfully.")
+    print("Generated CSR")
 
     # Generate short-lived certificate with STaaS
     url="https://staas.excid.io/"
