@@ -167,19 +167,47 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     subprocess.run(command, check=True)
 
 def issue(token, subject, cert_output_file):
-    try:
-        result = subprocess.run(f"openssl ecparam -name prime256v1 -genkey -noout -out private.key", shell=True, text=True, check=True, capture_output=True)
-        if result.stdout != "": print(result.stdout)
-        result = subprocess.run(f"openssl ec -in private.key -pubout -out public.pub", shell=True, text=True, check=True, capture_output=True)
-        if result.stdout != "": print(result.stdout)
-        print("Generated key pair")
-        result = subprocess.run(f"openssl req -new -key private.key -subj \"/CN={subject}\" -out staas.csr", shell=True, text=True, check=True, capture_output=True)
-        if result.stdout != "": print(result.stdout)
-        print("Generated csr")
-    except subprocess.CalledProcessError as e:
-        print(f"{error_str}{e.stderr}")
-        os._exit(1) 
-    
+    # 1. Generate key-pair and CSR
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.x509 import Name, NameAttribute, CertificateSigningRequestBuilder
+    import cryptography.x509 as x509  # Import x509 module
+
+    # Generate an EC private key
+    private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+
+    # Save the private key to a file (unencrypted)
+    with open("private.key", "wb") as f:
+        f.write(private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()  # No encryption
+        ))
+
+    # Generate the public key
+    public_key = private_key.public_key()
+
+    # Save the public key to a file
+    with open("public.pub", "wb") as f:
+        f.write(public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ))
+
+    # Create a CSR
+    subject = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, subject)])
+    csr = CertificateSigningRequestBuilder().subject_name(subject).sign(private_key, hashes.SHA256(), default_backend())
+
+    # Save the CSR to a file
+    with open("staas.csr", "wb") as f:
+        f.write(csr.public_bytes(serialization.Encoding.PEM))
+
+    print("Private key, public key, and CSR generated successfully.")
+
+    # Generate short-lived certificate with STaaS
     url="https://staas.excid.io/"
     headers = {
         'Content-Type': 'text/plain',
