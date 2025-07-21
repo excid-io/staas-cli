@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/release_binaries.yaml
       - staas-cli.py
+      - requirements.txt
 
 jobs:
   build-ubuntu:
