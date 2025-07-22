@@ -226,17 +226,28 @@ def issue(token, subject, cert_output_file):
     print("Stored certificate in file " + cert_output_file)
 
 def download_ca_pem(output_file):
+    from tqdm import tqdm
+    
     url = "http://staas.excid.io/Sign/Certificate"
     try:
-        response = requests.get(url)
+        response = requests.get(url, stream=True)
         response.raise_for_status()
+        total_size = int(response.headers.get('content-length', 0))
+
         with open(output_file, 'wb') as file:
-            file.write(response.content)
-        print(f'Successfully downloaded {output_file}')
+            # Create a progress bar
+            with tqdm(total=total_size, unit='B', unit_scale=True, desc=output_file) as bar:
+                for data in response.iter_content(chunk_size=1024):
+                    file.write(data)
+                    bar.update(len(data))  # Update the progress bar
+
+        print(f'Successfully downloaded {output_file}')    
     except requests.exceptions.RequestException as e:
         print(f'{error_str}Error downloading file: {e}')
 
 def download_cosign():
+    from tqdm import tqdm
+
     global cosign_executable
     print(f"{info_str}Cosign not found in PATH, proceeding to download it")
     if os.name == 'nt':
@@ -250,12 +261,16 @@ def download_cosign():
         output_path = 'cosign'
         cosign_executable = "./cosign"
     try:
-        # Send a GET request to the URL
-        response = requests.get(url, allow_redirects=True)
-        response.raise_for_status()  # Raise an error for bad responses
+        response = requests.get(url, stream=True, allow_redirects=True)
+        response.raise_for_status()
+        total_size = int(response.headers.get('content-length', 0))
 
         with open(output_path, 'wb') as file:
-            file.write(response.content)
+            # Create a progress bar
+            with tqdm(total=total_size, unit='B', unit_scale=True, desc=output_path) as bar:
+                for data in response.iter_content(chunk_size=1024):
+                    file.write(data)
+                    bar.update(len(data))  # Update the progress bar
 
         print(f'Successfully downloaded {output_path}')
     except requests.exceptions.RequestException as e:
