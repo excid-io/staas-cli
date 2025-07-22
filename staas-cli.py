@@ -16,7 +16,11 @@ warning_str = "[!] -- Warning\n\t"
 info_str = "[!] -- Info\n\t"
 
 def sign_image(image, token, comment, bundle_output_file, upload):
+    """
+    This function signs a container image and uploads the signature on the OCI registry
+    """
     # 1. Generate payload with cosign
+    print(f"{info_str}Image signature start ({image})")
     try:
         result = subprocess.run(f'{cosign_executable} generate {image} > payload.json', shell=True, check=True, text=True, capture_output=True)
         if result.stdout != "": print(result.stdout)
@@ -78,6 +82,9 @@ def sign_image(image, token, comment, bundle_output_file, upload):
     os.remove(ca_file)
 
 def sign_blob(artifact, token, comment, output):
+    """
+    This function signs the specified artifact and writes the bundle output file in the current directory
+    """
     with open(artifact,"rb") as f:
         bytes = f.read() # read entire file as bytes
         artifact_digest = hashlib.sha256(bytes).digest()
@@ -103,6 +110,7 @@ def sign_blob(artifact, token, comment, output):
 
 def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     # safety check: remove old keys and certificates (leftovers)
+    print(f"{info_str}Image attestation start ({image})")
     files_to_delete = [
         "private.key",
         "public.key",
@@ -165,7 +173,15 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
     ]
     subprocess.run(command, check=True)
 
+
 def issue(token, subject, cert_output_file):
+    """
+    This function issues generates a key-pair and a CSR. Then it makes a POST request to STaaS
+    endpoint /Api/Issue, and returns a public key certificate for the given CSR.
+    It writes the files private.key, public.key, staas.csr and staas.crt (crt filename is parameterizable) 
+    in the current directory.
+    """
+    print(f"{info_str}Certificate issuance start")
     # 1. Generate key-pair and CSR
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.asymmetric import ec
@@ -226,7 +242,11 @@ def issue(token, subject, cert_output_file):
     print("Stored certificate in file " + cert_output_file)
 
 def download_ca_pem(output_file):
+    """
+    This functions downloads the .pem file of STaaS's CA in the file specified in the parameter
+    """
     from tqdm import tqdm
+    print(f"{info_str}Downloading STaaS's CA certificate")
     
     url = "http://staas.excid.io/Sign/Certificate"
     try:
@@ -246,6 +266,9 @@ def download_ca_pem(output_file):
         print(f'{error_str}Error downloading file: {e}')
 
 def download_cosign():
+    """
+    This function downloads cosign in the current directory
+    """
     from tqdm import tqdm
 
     global cosign_executable
