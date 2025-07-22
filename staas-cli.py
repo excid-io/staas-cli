@@ -126,7 +126,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
             result = subprocess.run(f"$env:COSIGN_PASSWORD = Get-Random", shell=True, text=True, check=True, capture_output=True)
         elif os.name == 'posix':
             result = subprocess.run(f"COSIGN_PASSWORD=$RANDOM", shell=True, text=True, check=True, capture_output=True)
-        if result.stdout != "": print(result.stdout)
+        print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
         os._exit(1) 
@@ -135,7 +135,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
             result = subprocess.run(f"echo $env:COSIGN_PASSWORD | {cosign_executable} import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
         elif os.name == 'posix':
             result = subprocess.run(f"echo $COSIGN_PASSWORD | {cosign_executable} import-key-pair --key private.key", shell=True, text=True, check=True, capture_output=True)
-        if result.stdout != "": print(result.stdout)
+        print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
         os._exit(2) 
@@ -146,7 +146,7 @@ def attest(image, predicate, predicate_type, token, subject, root_ca_file):
             result = subprocess.run(f"echo $env:COSIGN_PASSWORD | {cosign_executable} attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
         elif os.name == 'posix':
             result = subprocess.run(f"echo $COSIGN_PASSWORD | {cosign_executable} attest {image} --key import-cosign.key --type {predicate_type} --predicate {predicate} --certificate staas.crt --certificate-chain {root_ca_file} -y", shell=True, text=True, check=True, capture_output=True)
-        if result.stdout != "": print(result.stdout)
+        print(result.stdout)
     except subprocess.CalledProcessError as e:
         print(f"{error_str}{e.stderr}")
         os._exit(3) 
